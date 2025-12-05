@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Playlist Matcher
+
+A collaborative playlist app built with Next.js, Drizzle ORM, and PostgreSQL. Create shared playlists with friends across any streaming platform - no authentication required!
+
+## Features
+
+- 🎵 **Search & Add Songs** - Search millions of songs using the iTunes API
+- 🎨 **Beautiful Cover Art** - Automatically fetch album artwork for each song
+- 📝 **Lyrics Support** - View lyrics for songs using Lyrics.ovh API
+- 🔒 **Private Playlists** - Protect playlists with 4-digit PINs
+- 🌐 **Public Sharing** - Share public playlists with anyone via link
+- 👥 **Collaborative** - Multiple people can add songs to the same playlist
+- 🎨 **Modern UI** - Built with shadcn/ui and Tailwind CSS
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: PostgreSQL with Drizzle ORM
+- **UI**: shadcn/ui components
+- **APIs**: iTunes API (song search), Lyrics.ovh (lyrics)
+- **Styling**: Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+ and pnpm
+- PostgreSQL database
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/xmannii/listmatch.git
+cd listmatch
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+pnpm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/playlist_matcher
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Set up the database:
+```bash
+pnpm db:push
+```
 
-## Learn More
+5. Run the development server:
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `pnpm db:generate` - Generate migration files
+- `pnpm db:push` - Push schema changes to database
+- `pnpm db:migrate` - Run migrations
+- `pnpm db:studio` - Open Drizzle Studio
 
-## Deploy on Vercel
+## How It Works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Create a Playlist**: Enter a name and choose public or private
+2. **Get Your Link**: Private playlists get a 4-digit PIN, public ones don't
+3. **Add Songs**: Search for songs and add them to your playlist
+4. **Share**: Share the link (and PIN if private) with friends
+5. **Collaborate**: Anyone with the link can add songs to the playlist
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+app/
+  api/              # API routes
+  [slug]/          # Dynamic playlist pages
+  page.tsx         # Home page
+components/
+  playlist/        # Playlist-related components
+  ui/              # shadcn UI components
+lib/
+  db/              # Database schema and client
+```
+
+## License
+
+MIT
