@@ -173,7 +173,7 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
-    const songId = e.dataTransfer.getData("text/plain") || draggedSongId;
+    const songId = e.dataTransfer.getData("text/plain");
     if (songId && songId !== playlist.songs[index]?.id) {
       setDragOverIndex(index);
     }
