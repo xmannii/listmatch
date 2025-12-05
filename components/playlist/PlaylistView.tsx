@@ -48,6 +48,9 @@ interface PlaylistViewProps {
 
 export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: PlaylistViewProps) {
   const [isSharing, setIsSharing] = useState(false);
+  const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
 
   const handleShare = async () => {
     setIsSharing(true);
@@ -120,6 +123,113 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
     }
   };
 
+  const handleDragStart = (songId: string) => {
+    setDraggedSongId(songId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSongId(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    const songId = e.dataTransfer.getData("text/plain");
+    if (songId && songId !== playlist.songs[index]?.id) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const songId = e.dataTransfer.getData("text/plain") || draggedSongId;
+    if (songId && songId !== playlist.songs[index]?.id) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    // Only clear if we're actually leaving the element bounds
+    if (x < rect.left - 10 || x > rect.right + 10 || y < rect.top - 10 || y > rect.bottom + 10) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const droppedSongId = e.dataTransfer.getData("text/plain") || draggedSongId;
+    if (!droppedSongId) {
+      console.log("No dropped song ID");
+      return;
+    }
+
+    const draggedIndex = playlist.songs.findIndex(s => s.id === droppedSongId);
+    if (draggedIndex === -1) {
+      console.log("Dragged song not found");
+      setDraggedSongId(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // If dropped on the same position, do nothing
+    if (draggedIndex === dropIndex) {
+      console.log("Dropped on same position");
+      setDraggedSongId(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    console.log(`Moving song from index ${draggedIndex} to ${dropIndex}`);
+
+    // Create new order
+    const newSongs = [...playlist.songs];
+    const [draggedSong] = newSongs.splice(draggedIndex, 1);
+    newSongs.splice(dropIndex, 0, draggedSong);
+    const newOrder = newSongs.map(s => s.id);
+
+    setIsReordering(true);
+    const currentDraggedId = draggedSongId;
+    setDraggedSongId(null);
+    setDragOverIndex(null);
+
+    try {
+      const response = await fetch(`/api/playlists/${playlist.slug}/songs`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          songIds: newOrder,
+          pin,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to reorder songs");
+      }
+
+      toast.success("Playlist reordered");
+      onSongAdded(); // Refresh the playlist
+    } catch (error) {
+      console.error("Reorder error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to reorder songs");
+      setDraggedSongId(currentDraggedId);
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 md:py-10 max-w-4xl">
       {/* Header */}
@@ -161,7 +271,12 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopyLink}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCopyLink}
+              className="hover:text-foreground"
+            >
               <Copy className="h-4 w-4 mr-2" />
               Copy Link
             </Button>
@@ -199,14 +314,39 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
           </div>
         ) : (
           <div className="space-y-3">
-            {playlist.songs.map((song, index) => (
-              <SongCard
-                key={song.id}
-                song={song}
-                index={index + 1}
-                onRemove={() => handleRemoveSong(song.id)}
-              />
-            ))}
+            {playlist.songs.map((song, index) => {
+              const isDragged = draggedSongId === song.id;
+              const isDragOver = dragOverIndex === index && !isDragged;
+              
+              return (
+                <div
+                  key={song.id}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnter={(e) => handleDragEnter(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className="relative min-h-[80px]"
+                >
+                  {isDragOver && (
+                    <>
+                      <div className="absolute -top-1.5 left-0 right-0 h-1 bg-primary rounded-full z-10 shadow-lg shadow-primary/50" />
+                      <div className="absolute inset-0 border-2 border-primary/30 rounded-xl z-0 pointer-events-none" />
+                    </>
+                  )}
+                  <SongCard
+                    song={song}
+                    index={index + 1}
+                    onRemove={() => handleRemoveSong(song.id)}
+                    isDragging={isDragged}
+                    dragHandleProps={{
+                      draggable: !isReordering,
+                      onDragStart: () => handleDragStart(song.id),
+                      onDragEnd: handleDragEnd,
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

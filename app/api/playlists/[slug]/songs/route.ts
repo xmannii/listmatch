@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { playlists, songs } from "@/lib/db/schema";
-import { eq, and, max } from "drizzle-orm";
+import { eq, and, max, inArray } from "drizzle-orm";
 
 export async function POST(
   request: NextRequest,
@@ -154,6 +154,94 @@ export async function DELETE(
     console.error("Error removing song:", error);
     return NextResponse.json(
       { error: "Failed to remove song" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const { slug } = await params;
+    const body = await request.json();
+    const { songIds, pin } = body;
+
+    if (!songIds || !Array.isArray(songIds) || songIds.length === 0) {
+      return NextResponse.json(
+        { error: "Song IDs array is required" },
+        { status: 400 }
+      );
+    }
+
+    // Find the playlist
+    const playlist = await db.query.playlists.findFirst({
+      where: eq(playlists.slug, slug),
+    });
+
+    if (!playlist) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
+
+    // If private, verify PIN
+    if (playlist.isPrivate) {
+      if (!pin) {
+        return NextResponse.json(
+          { error: "PIN required" },
+          { status: 401 }
+        );
+      }
+      if (pin !== playlist.pin) {
+        return NextResponse.json(
+          { error: "Invalid PIN" },
+          { status: 401 }
+        );
+      }
+    }
+
+    // Verify all songs belong to this playlist
+    const playlistSongs = await db
+      .select()
+      .from(songs)
+      .where(
+        and(
+          eq(songs.playlistId, playlist.id),
+          inArray(songs.id, songIds)
+        )
+      );
+
+    if (playlistSongs.length !== songIds.length) {
+      return NextResponse.json(
+        { error: "Some songs don't belong to this playlist" },
+        { status: 400 }
+      );
+    }
+
+    // Update order for each song
+    const updates = songIds.map((songId: string, index: number) =>
+      db
+        .update(songs)
+        .set({ order: index })
+        .where(and(eq(songs.id, songId), eq(songs.playlistId, playlist.id)))
+    );
+
+    await Promise.all(updates);
+
+    // Update playlist's updatedAt
+    await db
+      .update(playlists)
+      .set({ updatedAt: new Date() })
+      .where(eq(playlists.id, playlist.id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error reordering songs:", error);
+    return NextResponse.json(
+      { error: "Failed to reorder songs" },
       { status: 500 }
     );
   }

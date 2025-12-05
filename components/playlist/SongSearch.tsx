@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Search, Plus, Loader2, Music, X } from "lucide-react";
 import Image from "next/image";
@@ -147,9 +146,11 @@ export function SongSearch({ playlistSlug, pin, onSongAdded }: SongSearchProps) 
       {isOpen && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50 max-h-[400px] overflow-y-auto">
           {results.map((song) => (
-            <div
+            <button
               key={song.itunesId}
-              className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0"
+              onClick={() => handleAddSong(song)}
+              disabled={addingId === song.itunesId}
+              className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:bg-muted/70"
             >
               {/* Album Art */}
               <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0">
@@ -169,28 +170,22 @@ export function SongSearch({ playlistSlug, pin, onSongAdded }: SongSearchProps) 
               </div>
 
               {/* Song Info */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 text-left">
                 <p className="font-medium truncate">{song.title}</p>
                 <p className="text-sm text-muted-foreground truncate">
                   {song.artist} • {song.album}
                 </p>
               </div>
 
-              {/* Add Button */}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleAddSong(song)}
-                disabled={addingId === song.itunesId}
-                className="shrink-0"
-              >
+              {/* Add Icon Indicator */}
+              <div className="shrink-0">
                 {addingId === song.itunesId ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 ) : (
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 text-muted-foreground" />
                 )}
-              </Button>
-            </div>
+              </div>
+            </button>
           ))}
         </div>
       )}

@@ -3,10 +3,6 @@ import { db } from "@/lib/db";
 import { playlists } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 
-function generatePin(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-}
-
 function generateSlug(): string {
   return nanoid(8);
 }
@@ -14,7 +10,7 @@ function generateSlug(): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, isPrivate } = body;
+    const { name, isPrivate, pin } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -23,15 +19,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (isPrivate) {
+      if (!pin || typeof pin !== "string" || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+        return NextResponse.json(
+          { error: "A valid 4-digit PIN is required for private playlists" },
+          { status: 400 }
+        );
+      }
+    }
+
     const slug = generateSlug();
-    const pin = isPrivate ? generatePin() : null;
+    const playlistPin = isPrivate ? pin : null;
 
     const [playlist] = await db
       .insert(playlists)
       .values({
         name: name.trim(),
         isPrivate: Boolean(isPrivate),
-        pin,
+        pin: playlistPin,
         slug,
       })
       .returning();
