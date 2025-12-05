@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { SongSearch } from "./SongSearch";
 import { SongCard } from "./SongCard";
+import { PlaylistCover } from "./PlaylistCover";
 import { toast } from "sonner";
 import { 
   Music2, 
@@ -14,8 +25,17 @@ import {
   Share2, 
   Copy, 
   ArrowLeft,
-  ListMusic
+  ListMusic,
+  Settings,
+  BarChart3
 } from "lucide-react";
+
+interface Comment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
 
 interface Song {
   id: string;
@@ -27,11 +47,13 @@ interface Song {
   itunesId: string | null;
   createdAt: string;
   order: number;
+  comments?: Comment[];
 }
 
 interface Playlist {
   id: string;
   name: string;
+  description: string | null;
   slug: string;
   isPrivate: boolean;
   createdAt: string;
@@ -51,6 +73,21 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [description, setDescription] = useState(playlist.description || "");
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+
+  // Sync description when playlist changes
+  useEffect(() => {
+    setDescription(playlist.description || "");
+  }, [playlist.description]);
+
+  // Calculate playlist stats
+  const stats = {
+    totalSongs: playlist.songs.length,
+    uniqueArtists: new Set(playlist.songs.map(s => s.artist)).size,
+    totalComments: playlist.songs.reduce((sum, song) => sum + (song.comments?.length || 0), 0),
+  };
 
   const handleShare = async () => {
     setIsSharing(true);
@@ -230,6 +267,35 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
     }
   };
 
+  const handleSaveDescription = async () => {
+    setIsSavingDescription(true);
+    try {
+      const response = await fetch(`/api/playlists/${playlist.slug}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: description.trim() || null,
+          pin,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update description");
+      }
+
+      toast.success("Description updated");
+      setIsSettingsOpen(false);
+      onSongAdded(); // Refresh the playlist
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update description");
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 md:py-10 max-w-4xl">
       {/* Header */}
@@ -243,13 +309,17 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
         </Link>
 
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-              <Music2 className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{playlist.name}</h1>
-              <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3 md:gap-4 min-w-0">
+            <PlaylistCover name={playlist.name} size={64} className="shrink-0 hidden sm:block" />
+            <PlaylistCover name={playlist.name} size={48} className="shrink-0 sm:hidden" />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 break-words">{playlist.name}</h1>
+              {playlist.description && (
+                <p className="text-sm text-muted-foreground mb-3 max-w-2xl">
+                  {playlist.description}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
                 <Badge variant="secondary" className="gap-1.5">
                   {playlist.isPrivate ? (
                     <>
@@ -263,26 +333,98 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
                     </>
                   )}
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {playlist.songs.length} {playlist.songs.length === 1 ? "song" : "songs"}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground">
+                  <span>{stats.totalSongs} {stats.totalSongs === 1 ? "song" : "songs"}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span>{stats.uniqueArtists} {stats.uniqueArtists === 1 ? "artist" : "artists"}</span>
+                  {stats.totalComments > 0 && (
+                    <>
+                      <span className="hidden sm:inline">•</span>
+                      <span>{stats.totalComments} {stats.totalComments === 1 ? "comment" : "comments"}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {playlist.isPrivate && pin && (
+              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="hover:text-foreground w-full sm:w-auto"
+                  >
+                    <Settings className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Settings</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Playlist Settings</DialogTitle>
+                    <DialogDescription>
+                      Add a description to your playlist
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <textarea
+                        id="description"
+                        placeholder="What's this playlist about?"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        maxLength={500}
+                        rows={4}
+                        className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {description.length}/500 characters
+                      </p>
+                    </div>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          setDescription(playlist.description || "");
+                        }}
+                        disabled={isSavingDescription}
+                        className="w-full sm:w-auto"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSaveDescription}
+                        disabled={isSavingDescription}
+                        className="w-full sm:w-auto"
+                      >
+                        {isSavingDescription ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleCopyLink}
-              className="hover:text-foreground"
+              className="hover:text-foreground w-full sm:w-auto"
             >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy Link
+              <Copy className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Copy Link</span>
             </Button>
-            <Button size="sm" onClick={handleShare} disabled={isSharing}>
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
+            <Button 
+              size="sm" 
+              onClick={handleShare} 
+              disabled={isSharing}
+              className="w-full sm:w-auto"
+            >
+              <Share2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Share</span>
             </Button>
           </div>
         </div>
@@ -343,6 +485,7 @@ export function PlaylistView({ playlist, pin, onSongAdded, onSongRemoved }: Play
                       onDragStart: () => handleDragStart(song.id),
                       onDragEnd: handleDragEnd,
                     }}
+                    onCommentAdded={onSongAdded}
                   />
                 </div>
               );

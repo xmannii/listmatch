@@ -144,7 +144,7 @@ export function SongSearch({ playlistSlug, pin, onSongAdded }: SongSearchProps) 
 
       {/* Search Results Dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50 max-h-[400px] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50 max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
           {results.map((song) => (
             <button
               key={song.itunesId}

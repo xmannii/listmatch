@@ -16,8 +16,38 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Playlist Matcher - Create Shared Playlists",
-  description: "Create and share playlists with friends across any streaming platform",
+  title: {
+    default: "Playlist Matcher - Create Shared Playlists",
+    template: "%s | Playlist Matcher",
+  },
+  description: "Create collaborative playlists with friends. Search songs, add them together, and build the perfect mix. Share your playlists easily.",
+  keywords: ["playlist", "music", "collaborative", "share", "songs", "music playlist", "shared playlist"],
+  authors: [{ name: "Mani", url: "https://github.com/xmannii" }],
+  creator: "Mani",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "Playlist Matcher",
+    title: "Playlist Matcher - Create Shared Playlists",
+    description: "Create collaborative playlists with friends. Search songs, add them together, and build the perfect mix.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Playlist Matcher - Create Shared Playlists",
+    description: "Create collaborative playlists with friends. Search songs, add them together, and build the perfect mix.",
+    creator: "@xmannii",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({

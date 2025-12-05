@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { playlists, songs } from "@/lib/db/schema";
+import { playlists, songs, comments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET(
@@ -16,6 +16,11 @@ export async function GET(
       with: {
         songs: {
           orderBy: (songs, { asc }) => [asc(songs.order)],
+          with: {
+            comments: {
+              orderBy: (comments, { desc }) => [desc(comments.createdAt)],
+            },
+          },
         },
       },
     });
@@ -47,6 +52,7 @@ export async function GET(
     return NextResponse.json({
       id: playlist.id,
       name: playlist.name,
+      description: playlist.description,
       slug: playlist.slug,
       isPrivate: playlist.isPrivate,
       createdAt: playlist.createdAt,
@@ -69,7 +75,7 @@ export async function PUT(
   try {
     const { slug } = await params;
     const body = await request.json();
-    const { name, pin } = body;
+    const { name, description, pin } = body;
 
     // Find the playlist
     const playlist = await db.query.playlists.findFirst({
@@ -100,18 +106,28 @@ export async function PUT(
     }
 
     // Update playlist
+    const updateData: { name?: string; description?: string | null; updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+    
+    if (name !== undefined) {
+      updateData.name = name?.trim() || playlist.name;
+    }
+    
+    if (description !== undefined) {
+      updateData.description = description?.trim() || null;
+    }
+
     const [updatedPlaylist] = await db
       .update(playlists)
-      .set({
-        name: name?.trim() || playlist.name,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(playlists.slug, slug))
       .returning();
 
     return NextResponse.json({
       id: updatedPlaylist.id,
       name: updatedPlaylist.name,
+      description: updatedPlaylist.description,
       slug: updatedPlaylist.slug,
       isPrivate: updatedPlaylist.isPrivate,
       updatedAt: updatedPlaylist.updatedAt,

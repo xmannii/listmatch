@@ -6,6 +6,13 @@ import { PlaylistView } from "@/components/playlist/PlaylistView";
 import { PinDialog } from "@/components/playlist/PinDialog";
 import { Disc3 } from "lucide-react";
 
+interface Comment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 interface Song {
   id: string;
   title: string;
@@ -16,11 +23,13 @@ interface Song {
   itunesId: string | null;
   createdAt: string;
   order: number;
+  comments?: Comment[];
 }
 
 interface Playlist {
   id: string;
   name: string;
+  description: string | null;
   slug: string;
   isPrivate: boolean;
   createdAt: string;
